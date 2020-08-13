@@ -1,6 +1,6 @@
 #!/bin/sh
 
-PRIORITY=$(ifconfig eth0| grep 'inet '| awk '{print $2}'| cut -d. -f4)
+PRIORITY=$(ifconfig $KEEPALIVED_INTERFACE | grep 'inet '| awk '{print $2}'| cut -d. -f4)
 KEEPALIVED_PRIORITY=${KEEPALIVED_PRIORITY:-$PRIORITY}
 
 echo $(date) $0: "filling keepalived config file"
