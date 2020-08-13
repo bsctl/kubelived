@@ -1,7 +1,7 @@
 # Alpine IMAGE=3.7 installs keepalived 1.3; use for older linux kernels
 # Alpine IMAGE=3.8+ installs keepalived 2.0: use for newer linux kernels
 
-FROM alpine:3.7
+FROM alpine:3.8
 LABEL architecture="x86_64" \
       license="Apache 2" \
       name="bsctl/keepalived" \
