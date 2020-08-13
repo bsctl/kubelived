@@ -38,21 +38,19 @@ Quote from the [website](https://www.keepalived.org/):
 
 *Keepalived is a routing software written in C. The main goal of this project is to provide simple and robust facilities for load-balancing and high-availability to Linux system and Linux based infrastructures. Loadbalancing framework relies on a well-known and widely used Linux Virtual Server (IPVS) kernel module providing Layer4 load-balancing. Keepalived implements a set of checkers to dynamically and adaptively maintain and manage a load-balanced server pool according to their health.*
 
-And again:
+...
 
 *On the other hand high-availability is achieved by VRRP protocol. VRRP is a fundamental brick for router failover. Also, Keepalived implements a set of hooks to the VRRP finite state machine providing low-level and high-speed protocol interactions. To offer faster network failure detection, Keepalived implements the BFD protocol. VRRP state transition can take into account the BFD hint to drive fast state transition. Keepalived frameworks can be used independently or all together to provide resilient infrastructures.*
 
 ## Running keepalived as container  
 Keepalived runs on most of the modern Linux distributions as `systemd` daemon. In this guide, we propose a containerized version of it, not only just for fun. We want to run `keepalived` as part of the Kubernetes Control Plane and having strictly coupled with it. In our implementation, the `keepalived` is managed by the `kubelet` daemon running on every Kubernetes node. It is deployed as a static pod along with the other components: the api-server, the etcd data store, the controller-manager, and the scheduler.
 
-First, we need to place `keepalived` in a Docker image. There are many good examples out there, see one from these [guys](https://github.com/osixia/docker-keepalived.git) which inspired us.
-
-The following is our proposal:
+First, we need to place `keepalived` in a Docker image. There are many good examples out there. The following is our proposal:
 
 ```Dockerfile
 # Alpine IMAGE=3.7 installs keepalived 1.3; use for older linux kernels
 # Alpine IMAGE=3.8+ installs keepalived 2.0: use for newer linux kernels    
-FROM alpine:3.7
+FROM alpine:3.8
 LABEL architecture="x86_64" \
     license="Apache 2" \
     name="bsctl/keepalived" \
