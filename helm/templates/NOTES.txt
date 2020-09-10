@@ -1,0 +1,19 @@
+- Kubelived Helm Chart deployed:
+
+   # Check the installer logs
+   $ kubectl logs -f ds/{{ template "kubelived.fullname" . }}-installer -n {{ .Release.Namespace }}
+
+   # Check the keepalived logs
+   $ kubectl logs -f kube-keepalived-<master> -n {{ .Release.Namespace }}
+
+- Manage this chart:
+
+   # Upgrade Kubelived
+   $ helm upgrade {{ .Release.Name }} -f <values.yaml> kubelived -n {{ .Release.Namespace }}
+
+   # Show this status again
+   $ helm status {{ .Release.Name }} -n {{ .Release.Namespace }}
+
+   # Uninstall Kubelived
+   $ helm uninstall {{ .Release.Name }} -n {{ .Release.Namespace }}
+

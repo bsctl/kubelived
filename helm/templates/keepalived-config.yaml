@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keepalived-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kubelived.labels" . | nindent 4 }}
+data:
+  {{ .Values.keepalived_config_file }}: |
+    # keepalived global configuration
+    global_defs {
+      default_interface KEEPALIVED_INTERFACE
+      enable_script_security 
+    }
+    vrrp_script {{ .Values.keepalived_health_service_name }} {
+      script   {{ quote .Values.keepalived_health_service_check }}
+      interval {{ .Values.keepalived_health_service_interval }}
+      timeout  {{ .Values.keepalived_health_service_timeout }}
+      rise     {{ .Values.keepalived_health_service_rise }}
+      fall     {{ .Values.keepalived_health_service_fall }}
+      user     {{ .Values.keepalived_health_service_user }}
+    }
+    vrrp_instance VI_1 {
+      state {{ upper .Values.keepalived_initial_state }}
+      interface KEEPALIVED_INTERFACE
+      virtual_router_id {{ .Values.keepalived_router_id }}
+      priority KEEPALIVED_PRIORITY
+      advert_int {{ .Values.keepalived_health_service_interval }}
+      authentication {
+        auth_type PASS
+        auth_pass {{ .Values.keepalived_password | b64enc }}
+      }
+      track_script {
+        {{ .Values.keepalived_health_service_name }}
+      }     
+      virtual_ipaddress {
+        {{ .Values.keepalived_virtual_address }} label KEEPALIVED_INTERFACE:VIP
+      }
+      
+      {{- if .Values.keepalived_unicast_peers }}
+      unicast_peer {
+      {{- range .Values.keepalived_unicast_peers }}
+        {{ . }}
+      {{- end }}
+      }    
+      {{- end }}
+    }

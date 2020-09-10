@@ -1,4 +1,12 @@
-# kube-keepalived - Kubernetes Control Plane with keepalived
+# Kubernetes Control Plane with keepalived
+
+<p align="center">
+  <img src="https://img.shields.io/github/license/clastix/kubelived"/>
+  <a href="https://github.com/clastix/kubelived/releases">
+    <img src="https://img.shields.io/github/v/release/clastix/kubelived"/>
+  </a>
+</p>
+
 In a typical kubernetes setup, we have worker nodes and master nodes. Master nodes run the api-server, the etcd database, and the controllers. These nodes implement the so-called Control Plane, i.e. the brain of your Kubernetes cluster. Worker nodes talk to the Master nodes using the Control Plane Endpoint, usually a hostname or an IP address which tells all the nodes how to reach the Control Plane.
 
 ## What problem does it solve?
@@ -38,50 +46,30 @@ Quote from the [website](https://www.keepalived.org/):
 
 *Keepalived is a routing software written in C. The main goal of this project is to provide simple and robust facilities for load-balancing and high-availability to Linux system and Linux based infrastructures. Loadbalancing framework relies on a well-known and widely used Linux Virtual Server (IPVS) kernel module providing Layer4 load-balancing. Keepalived implements a set of checkers to dynamically and adaptively maintain and manage a load-balanced server pool according to their health.*
 
-...
-
 *On the other hand high-availability is achieved by VRRP protocol. VRRP is a fundamental brick for router failover. Also, Keepalived implements a set of hooks to the VRRP finite state machine providing low-level and high-speed protocol interactions. To offer faster network failure detection, Keepalived implements the BFD protocol. VRRP state transition can take into account the BFD hint to drive fast state transition. Keepalived frameworks can be used independently or all together to provide resilient infrastructures.*
 
 ## Running keepalived as container  
-Keepalived runs on most of the modern Linux distributions as `systemd` daemon. In this guide, we propose a containerized version of it, not only just for fun. We want to run `keepalived` as part of the Kubernetes Control Plane and having strictly coupled with it. In our implementation, the `keepalived` is managed by the `kubelet` daemon running on every Kubernetes node. It is deployed as a static pod along with the other components: the api-server, the etcd data store, the controller-manager, and the scheduler.
+Keepalived runs on most of the modern Linux distributions as `systemd` daemon. In this guide, we propose a containerized version of it, not only just for fun. We want to run `keepalived` as part of the Kubernetes Control Plane and having strictly coupled with it. In our implementation, the `keepalived` is managed by the `kubelet` daemon running on every Kubernetes node. It is deployed as a static pod along with the other components: the `apiserver`, the `etcd` data store, the `controller-manager`, and the `scheduler`.
 
-First, we need to place `keepalived` in a Docker image. There are many good examples out there. The following is our proposal:
+First, we need to place `keepalived` in a Docker image:
 
 ```Dockerfile
-# Alpine IMAGE=3.7 installs keepalived 1.3; use for older linux kernels
-# Alpine IMAGE=3.8+ installs keepalived 2.0: use for newer linux kernels    
-FROM alpine:3.8
+FROM alpine:3.10
+
 LABEL architecture="x86_64" \
     license="Apache 2" \
-    name="bsctl/keepalived" \
+    name="keepalived" \
     summary="Alpine based keepalived container" \
     mantainer="bsctl"
 
-ENV KEEPALIVED_INTERFACE=eth0 \
-    KEEPALIVED_STATE=MASTER \
-    KEEPALIVED_PASSWORD=cGFzc3dvcmQK \
-    KEEPALIVED_HEALTH_SERVICE_NAME=pidof \
-    KEEPALIVED_HEALTH_SERVICE_INTERVAL=10 \
-    KEEPALIVED_HEALTH_SERVICE_TIMEOUT=1 \
-    KEEPALIVED_HEALTH_SERVICE_CHECK="/bin/pidof keepalived" \
-    KEEPALIVED_HEALTH_SERVICE_USER=root \
-    KEEPALIVED_ROUTER_ID=100 \
-    KEEPALIVED_VIRTUAL_IP=1.1.1.1 \
-    KEEPALIVED_ADVERT_INT=1 \
-    KEEPALIVED_UNICAST_PEER=
-
 RUN  apk add --no-cache curl keepalived
-COPY scripts/config.sh /usr/bin
-COPY scripts/keepalived.sh /usr/bin
-COPY template.conf /etc/keepalived/template.conf
-RUN  chmod +x /usr/bin/config.sh && chmod +x /usr/bin/keepalived.sh
-ENTRYPOINT ["/usr/bin/keepalived.sh"]
-CMD ["-nlPd"]
+ENTRYPOINT ["/usr/sbin/keepalived","--dont-fork","--log-console"]
+
+# Customise keepalived with:
+# CMD ["--vrrp","--log-detail","--dump-conf"]
 ```
 
-Since keepalived is compiled against specific versions of the Linux kernel, it is very important to have the Docker image aligned to the kernel running on your machines. For older kernels, e.g. 3.10, running on CentOS7 distribution, we build the image with Alpine 3.7 which provides keepalive 1.3 version. On the other side, for newer kernels, we build with Alpine 3.8+ as it uses more recent keepalive versions.
-
-The script [config.sh](./scripts/config.sh) just fills the configuration starting from a [placeholder](./template.conf) and the script [keepalived.sh](./scripts/keepalived.sh) takes care of starting the keepalived binary and pass it the arguments.
+Since keepalived is compiled against specific versions of the Linux kernel, it is very important to have the Docker image aligned to the kernel running on your machines. For older kernels, e.g. 3.10, running in the CentOS 7 distribution, we build the image with Alpine 3.7 which provides `keepalived` 1.3 version. On the other side, for newer kernels, we build with Alpine 3.8+ as it uses more recent `keepalived` versions.
 
 ## Keepalived basics
 There are plenty of tutorials out there explaining the keepalived basics. However, we suggest checking the official [documentation](https://www.keepalived.org/manpage.html).
@@ -109,11 +97,9 @@ vrrp_instance VI_1 {
         {{ KEEPALIVED_HEALTH_SERVICE_NAME }}
     }
 
-    #unicast
     unicast_peer {
-    {{ KEEPALIVED_UNICAST_PEER }}
+    {{ KEEPALIVED_UNICAST_PEERS }}
     }
-    #unicast
     
     virtual_ipaddress {
         {{ KEEPALIVED_VIRTUAL_IP }} label {{ KEEPALIVED_INTERFACE }}:VIP
@@ -123,7 +109,7 @@ vrrp_instance VI_1 {
 
 We start off by telling keepalived to communicate with its peers over KEEPALIVED_INTERFACE. We set the instance state option to KEEPALIVED_STATE. This is the initial value that keepalived will use until the daemon contacts the other instances and hold an election. During the election, the priority option KEEPALIVED_PRIORITY is used to decide which member is elected and the decision is simply based on which instance has the highest number. We can force the priority of the keepalived instance but, in our implementation, if this option is left unassigned, the latest octet of the node's IP address is used.
 
-The KEEPALIVED_ROUTER_ID option should be shared by all the keepalive instances participating in the same multicast group. By default, keepalived advertises on the multicast group `224.0.0.18`. If multicast is not enabled on the network, alternatively, we can switch to unicast by defining a list of unicast peers specified into the KEEPALIVED_UNICAST_PEER option.
+The KEEPALIVED_ROUTER_ID option should be shared by all the keepalive instances participating in the same multicast group. By default, keepalived advertises on the multicast group `224.0.0.18`. If multicast is not enabled on the network, alternatively, we can switch to unicast by defining a list of unicast peers specified into the KEEPALIVED_UNICAST_PEERS option.
 
 Also, we can set up a simple authentication based on KEEPALIVED_PASSWORD for our keepalived instances to communicate with one another.
 
@@ -150,7 +136,7 @@ It's possible to specify the user running the script, along with the interval in
 The script can check anything we want. As soon as the tracking script returns another code than 0, the VRRP instance will change the state to FAULT, removes the VIP from the network interface, and stops sending VRRP advertisements. In our case, we will write a simple script checking the health status of the Kubernetes api-server.
 
 ## Keepalived as part of the control plane
-We want keepalived deployed as part of the Kubernetes control plane running on the master nodes along with the other components: the api-server, the etcd database, and the controllers. In many Kubernetes distributions, including Red Hat OpenShift, these components are running as privileged containers and deployed as static pods.
+We want keepalived deployed as part of the Kubernetes control plane running on the master nodes along with the other components: the apiserver, the etcd database, and the controllers. In many Kubernetes distributions, including Red Hat OpenShift, these components are running as privileged containers and deployed as static pods.
 
 ### Static pods
 Static pods are managed directly by the `kubelet` daemon running on the node, without the api-server involvement. Unlike regular pods that are managed by the control plane instead, the kubelet watches static pods and restarts them when they crash.
@@ -182,68 +168,61 @@ Static pods are created by the kubelet by watching a specific directory on the n
 The following [kube-keepalived.yaml](./kube-keepalived.yaml) is the manifest file we use to deploy a keepalived static pod on every master node:
 
 ```yaml
+# Kubernetes: manifests for static pods are in /etc/kubernetes/manifests
 apiVersion: v1
 kind: Pod
 metadata:
-  annotations:
-    scheduler.alpha.kubernetes.io/critical-pod: ''
-  name: kube-keepalived
-  namespace: kube-system
+annotations:
+  scheduler.alpha.kubernetes.io/critical-pod: ""
+labels:
+  app.kubernetes.io/name: kubelived
+  app.kubernetes.io/instance: kubelived
+name: kube-keepalived
+namespace: kube-system
 spec:
-  containers:
-  - name: keepalived
-    image: docker.io/bsctl/keepalived:2.0
-    args: # override the CMD ["-nlPd"] in Dockerfile
-    - -nlPdD
-    env:
-    - name: KEEPALIVED_INTERFACE
-      value: 'eth0'
-    - name: KEEPALIVED_STATE
-      value: 'BACKUP'
-    - name: KEEPALIVED_PASSWORD # echo 'password' | base64
-      value: 'cGFzc3dvcmQK'
-    - name: KEEPALIVED_HEALTH_SERVICE_NAME
-      value: 'apiserver'
-    - name: KEEPALIVED_HEALTH_SERVICE_CHECK
-      value: '/usr/bin/curl -s -k https://localhost:6443/healthz -o /dev/null'
-    - name: KEEPALIVED_HEALTH_SERVICE_USER
-      value: 'root'
-    - name: KEEPALIVED_ROUTER_ID
-      value: '100'
-    - name: KEEPALIVED_PRIORITY
-      value: ''
-    - name: KEEPALIVED_VIRTUAL_IP
-      value: '10.10.10.250'
-    - name: KEEPALIVED_ADVERT_INT
-      value: '3'
-    - name: KEEPALIVED_UNICAST_PEER
-      value: '10.10.10.10 10.10.10.11 10.10.10.12'       
-    livenessProbe:
-      exec:
-        command: ["pidof", "keepalived"]
-      initialDelaySeconds: 10
-    securityContext:
-      privileged: true
-    resources:
-    volumeMounts:
-    - mountPath: /etc/localtime
-      name: host-localtime
-  hostNetwork: true
-  priorityClassName: system-node-critical
-  restartPolicy: Always
-  volumes:
-  - hostPath:
-      path: /etc/localtime
+containers:
+- name: keepalived
+  image: bsctl/keepalived:0.2.0
+  imagePullPolicy: Always
+  args: # override options in the Dockerfile
+  - --vrrp
+  - --log-detail
+  - --dump-conf
+  - --use-file=/etc/keepalived/keepalived.conf
+  livenessProbe:
+    exec:
+      command: ["pidof", "keepalived"]
+    initialDelaySeconds: 10
+  securityContext:
+    privileged: true
+    capabilities:
+      add:
+      - NET_ADMIN
+  resources:
+  volumeMounts:
+  - mountPath: /etc/localtime
     name: host-localtime
+  - mountPath: /etc/keepalived/keepalived.conf
+    name: config
+hostNetwork: true
+priorityClassName: system-node-critical
+restartPolicy: Always
+volumes:
+- hostPath:
+    path: /etc/localtime
+  name: host-localtime
+- hostPath:
+    path: /etc/keepalived/keepalived.conf
+  name: config
 ```
 
-The three master nodes have the following IP addresses assigned to their `eth0` network interface:
+Suppose, we have three master nodes with following IP addresses assigned to their `eth0` network interface:
 
 * master-0: 10.10.10.10
 * master-0: 10.10.10.11
 * master-2: 10.10.10.12
  
-The floating VIP is 10.10.10.250 and it will be assigned to the master node with the highest priority. Since we are not passing the priority, it will be calculated as the last octet of the node's IPv4 address. According to the VRRP protocol, the VIP will be initially taken by the node with the highest priority, i.e. the master-2.
+The floating VIP is 10.10.10.250 and it will be assigned to the master node with the highest priority. When not passing the priority, it can be calculated as the last octet of the node's IPv4 address. According to the VRRP protocol, the VIP will be initially taken by the node with the highest priority.
 
 As track script, we check the healthiness of the Kubernetes api-server as by polling its health URL:
 
@@ -253,9 +232,25 @@ As track script, we check the healthiness of the Kubernetes api-server as by pol
 
 According to the above, the keepalive will move the VIP away from nodes having unhealth api-server.
 
+### Deploying keepalived with Helm
+Starting from release 0.2.0, we support the deployment of keepalived via the Helm 3 [chart](./helm).
 
-### Deploying keepalived
-Copy the file above into `/etc/kubernetes/manifest` folder of every master node and check the mirror pods
+Make sure you have `kubectl` and `helm` tools installed in your workstation. Also make sure to have admin access to the cluster:
+
+
+Install through Helm:
+
+    $ helm install kubelived --namespace kube-system
+
+Actually, the Helm chart does not install `keepalived` on the Kubernetes Control Plane. Instead, it deployes installer pods as as daemonset on the master nodes. The installer pods are responsible to deploy the `kube-keepalived.yaml` pod manifest in the `/etc/kubernetes/manifests` folder and the proper `keepalived.conf` configuration file in `/etc/keepalived` location of each master node.
+
+Check the installer pods:
+
+    $ kubectl -n kube-system get pods -o wide | grep keepalived-installer
+
+The installer pods do a lookup to find the proper keepalived interface starting from the VIP specified as `keepalived_virtual_address` parameter in the chart's [values.yaml](./helm/values.yaml).
+
+Check the installation of `keepalived`:
 
     $ kubectl -n kube-system get pods
 
@@ -276,7 +271,7 @@ Copy the file above into `/etc/kubernetes/manifest` folder of every master node 
     kube-keepalived-master-1           1/1     Running   1         1m
     kube-keepalived-master-2           1/1     Running   1         1m
 
-Check the actual keepalived configuration according to the values we passed as environment variables. For example, the keepalive instance running on master-2 node has:
+Check the actual keepalived configuration according to the values we passed in the chart:
 
     $ kubectl -n kube-system exec kube-keepalived-master-2 -- cat /etc/keepalived/keepalived.conf
     
@@ -308,14 +303,6 @@ Check the actual keepalived configuration according to the values we passed as e
         track_script {
             apiserver
         }
-
-        #unicast
-        unicast_peer {
-        10.10.10.10
-        10.10.10.11
-        10.10.10.12
-        }
-        #unicast
         
         virtual_ipaddress {
             10.10.10.250 label eth0:VIP
@@ -418,8 +405,3 @@ Sending USR1 signal to keepalive process will dump configuration data to `/tmp/k
         Sent: 0
 
 Also, SNMP V2 and V3 MIBs are available to monitor keepalived.
-
-## Deploy on Red Hat OpenShift
-OpenShift is a PaaS built on top of [OKD](https://docs.okd.io/), the distribution of Kubernetes mantained by Red Hat. In order to make our solution working on Openshift, we need to adapt it a bit. In OpenShift, the manifest files for static pods are placed under `/etc/origin/node/pods` of the nodes, so we have to place the manifest of keepalived in this folder.
-
-In Openshift, the api-server is listening by default on the 8443 HTTPS port. The track script must be adapted accordly: `/usr/bin/curl -s -k https://localhost:8443/healthz -o /dev/null`. Here the manifest [kube-keepalived-okd.yaml](./kube-keepalived-okd.yaml) file for OpenShift.

@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keepalived-manifest
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kubelived.labels" . | nindent 4 }}
+data:
+  kube-keepalived.yaml: |
+    # Kubernetes: manifest for static pods are in /etc/kubernetes/manifest 
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+      labels:
+        {{- include "kubelived.selectorLabels" . | nindent 8 }}
+      name: kube-keepalived
+      namespace: kube-system
+    spec:
+      containers:
+      - name: keepalived
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}
+        imagePullPolicy: Always
+        args: # override options in the Dockerfile
+        - --vrrp
+        - --log-detail
+        - --dump-conf
+        - --use-file={{ .Values.keepalived_config_path }}/{{ .Values.keepalived_config_file }}
+        livenessProbe:
+          exec:
+            command: ["pidof", "keepalived"]
+          initialDelaySeconds: 10
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+            - NET_ADMIN
+        resources:
+        volumeMounts:
+        - mountPath: /etc/localtime
+          name: host-localtime
+        - mountPath: {{ .Values.keepalived_config_path }}/{{ .Values.keepalived_config_file }}
+          name: config
+      hostNetwork: true
+      priorityClassName: system-node-critical
+      restartPolicy: Always
+      volumes:
+      - hostPath:
+          path: /etc/localtime
+        name: host-localtime
+      - hostPath:
+          path: {{ .Values.keepalived_config_path }}/{{ .Values.keepalived_config_file }}
+        name: config

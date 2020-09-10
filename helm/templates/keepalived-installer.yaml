@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: keepalived-installer
+  labels:
+    {{- include "kubelived.labels" . | nindent 4 }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "kubelived.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+      labels:
+        {{- include "kubelived.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "kubelived.serviceAccountName" . }}
+      priorityClassName: system-node-critical
+      hostNetwork: true
+      nodeSelector:
+        node-role.kubernetes.io/master: ""
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+      containers:
+      - name: installer
+        securityContext:
+          privileged: true
+        image: busybox
+        imagePullPolicy: IfNotPresent
+        command: ["./scripts/install.sh"]
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "./scripts/uninstall.sh"]
+        volumeMounts:
+        - name: manifest
+          mountPath: /etc/kubernetes/manifests
+        - name: config
+          mountPath: {{ .Values.keepalived_config_path }}
+        - name: keepalived-manifest
+          mountPath: /opt/kube-keepalived.yaml
+          subPath: kube-keepalived.yaml
+        - name: keepalived-config
+          mountPath: /opt/{{ .Values.keepalived_config_file }}
+          subPath: {{ .Values.keepalived_config_file }}
+        - name: keepalived-install-scripts
+          mountPath: /scripts
+      volumes:
+      - name: manifest
+        hostPath:
+          path: /etc/kubernetes/manifests
+      - name: config
+        hostPath:
+          path: {{ .Values.keepalived_config_path }}
+          type: DirectoryOrCreate
+      - name: keepalived-manifest
+        configMap:
+          name: keepalived-manifest
+      - name: keepalived-config
+        configMap:
+          name: keepalived-config
+      - name: keepalived-install-scripts
+        configMap:
+          name: keepalived-install-scripts
+          defaultMode: 0700
