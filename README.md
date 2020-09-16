@@ -12,7 +12,7 @@ In a typical kubernetes setup, we have worker nodes and master nodes. Master nod
 ## What problem does it solve?
 In many production environments, it is desirable to have a Kubernetes Control Plane that is resilient to failure and highly available. For clusters operating in public cloud environments the options and the methodology are usually straightforward: main cloud providers as AWS, GCP, Azure, have their own HA solutions which will work very well, and these should be preferred when operating in such environments.
 
-For private cloud deployments, and edge deployments, there are several different options, and most of them are based on hardware load-balancers. This project provides the strategy and methodology for a cheaper software solutions only. However, if you have a hardware load-balancer, that would bee obviously a better option.
+For private cloud deployments, and edge deployments, there are several different options, and most of them are based on hardware load-balancers. This project provides the strategy and methodology for a cheaper software solutions only. However, if you have a hardware load-balancer, that would be obviously a better option.
 
 In such environments, the worker nodes all use the load-balancer to talk to the control plane. This will balance the load to the master nodes, but we have just moved the single point of failure from the masters to the load-balancer.
 
