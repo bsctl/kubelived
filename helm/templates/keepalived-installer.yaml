@@ -30,8 +30,8 @@ spec:
       - name: installer
         securityContext:
           privileged: true
-        image: busybox
-        imagePullPolicy: IfNotPresent
+        image: {{ .Values.installer.repository }}:{{ .Values.installer.tag | default "latest" }}
+        imagePullPolicy: {{ .Values.installer.pullPolicy }}
         command: ["./scripts/install.sh"]
         lifecycle:
           preStop:
