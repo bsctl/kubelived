@@ -1,0 +1,59 @@
+kind: PodSecurityPolicy
+apiVersion: policy/v1beta1
+metadata:
+  name: {{ include "kubelived.fullname" . }}
+  labels:
+    {{- include "kubelived.labels" . | nindent 4 }}
+spec:
+  privileged: true
+  allowPrivilegeEscalation: true
+  allowedCapabilities:
+  - 'NET_ADMIN'
+  volumes:
+  - 'configMap'
+  - 'secret'
+  - 'hostPath'
+  hostNetwork: true
+  runAsUser:
+    rule: 'RunAsAny'
+  seLinux:
+    rule: 'RunAsAny'
+  supplementalGroups:
+    rule: 'RunAsAny'
+  fsGroup:
+    rule: 'RunAsAny'
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ include "kubelived.fullname" . }}-use-psp
+  labels:
+    {{- include "kubelived.labels" . | nindent 4 }}
+rules:
+- apiGroups:
+  - extensions
+  resources:
+  - podsecuritypolicies
+  resourceNames:
+  - {{ include "kubelived.fullname" . }}
+  verbs:
+  - use
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ include "kubelived.fullname" . }}-use-psp
+  labels:
+    {{- include "kubelived.labels" . | nindent 4 }}
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "kubelived.fullname" . }}-use-psp
+subjects:
+- apiGroup: ""
+  kind: ServiceAccount
+  name: {{ include "kubelived.serviceAccountName" . }}
+- apiGroup: rbac.authorization.k8s.io
+  kind: Group
+  name: system:nodes # required to start mirror pods

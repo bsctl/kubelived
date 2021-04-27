@@ -51,12 +51,12 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
-Create the name of the service account to use
+Create the name of the service account to use for installer
 */}}
 {{- define "kubelived.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create }}
-{{- default (include "kubelived.fullname" .) .Values.serviceAccount.name }}
+{{- if .Values.installer.serviceAccount.create }}
+{{- default (include "kubelived.fullname" .) .Values.installer.serviceAccount.name }}
 {{- else }}
-{{- default "default" .Values.serviceAccount.name }}
+{{- default "default" .Values.installer.serviceAccount.name }}
 {{- end }}
 {{- end }}

@@ -16,17 +16,17 @@ data:
       labels:
         {{- include "kubelived.selectorLabels" . | nindent 8 }}
       name: kube-keepalived
-      namespace: kube-system
+      namespace: {{ .Release.Namespace }}
     spec:
       containers:
       - name: keepalived
-        image: {{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}
-        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        image: {{ .Values.keepalived.image.repository }}:{{ .Values.keepalived.image.tag | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.keepalived.image.pullPolicy }}
         args: # override options in the Dockerfile
         - --vrrp
         - --log-detail
         - --dump-conf
-        - --use-file={{ .Values.keepalived_config_path }}/{{ .Values.keepalived_config_file }}
+        - --use-file={{ .Values.keepalived.config_path }}/{{ .Values.keepalived.config_file }}
         livenessProbe:
           exec:
             command: ["pidof", "keepalived"]
@@ -40,7 +40,7 @@ data:
         volumeMounts:
         - mountPath: /etc/localtime
           name: host-localtime
-        - mountPath: {{ .Values.keepalived_config_path }}/{{ .Values.keepalived_config_file }}
+        - mountPath: {{ .Values.keepalived.config_path }}/{{ .Values.keepalived.config_file }}
           name: config
       hostNetwork: true
       priorityClassName: system-node-critical
@@ -50,5 +50,5 @@ data:
           path: /etc/localtime
         name: host-localtime
       - hostPath:
-          path: {{ .Values.keepalived_config_path }}/{{ .Values.keepalived_config_file }}
+          path: {{ .Values.keepalived.config_path }}/{{ .Values.keepalived.config_file }}
         name: config

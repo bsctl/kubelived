@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keepalived-scripts
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kubelived.labels" . | nindent 4 }}
+data:
+  install.sh: |
+    #!/bin/sh
+    if [ ! -e "/etc/kubernetes/manifests/kube-keepalived.yaml" ]; then
+      echo $(date): "Copying keepalived manifest file to /etc/kubernetes/manifests/kube-keepalived.yaml"
+      cp /opt/kube-keepalived.yaml /etc/kubernetes/manifests/kube-keepalived.yaml
+      chmod 600 /etc/kubernetes/manifests/kube-keepalived.yaml
+      echo $(date): "Copying keepalived config file to {{ .Values.keepalived.config_path }}/{{ .Values.keepalived.config_file }}" 
+      cp /opt/{{ .Values.keepalived.config_file }} {{ .Values.keepalived.config_path }}/{{ .Values.keepalived.config_file }}
+      echo $(date): "Finding the keepalived interface:" $KEEPALIVED_INTERFACE
+      KEEPALIVED_INTERFACE={{ .Values.keepalived.interface }}
+      echo $(date): "Calculating the keepalived priority:" $KEEPALIVED_PRIORITY
+      KEEPALIVED_PRIORITY=$(ifconfig $KEEPALIVED_INTERFACE | grep 'inet '| awk '{print $2}'| cut -d. -f4)
+      sed -i "s|KEEPALIVED_INTERFACE|$KEEPALIVED_INTERFACE|g" {{ .Values.keepalived.config_path }}/{{ .Values.keepalived.config_file }}
+      sed -i "s|KEEPALIVED_PRIORITY|$KEEPALIVED_PRIORITY|g" {{ .Values.keepalived.config_path }}/{{ .Values.keepalived.config_file }}
+      echo $(date): "Updated the keepalived config file"
+    else echo $(date): "Already installed keepalived, nothing to do!"
+    fi
+
+  uninstall.sh: |
+    #!/bin/sh
+    #
+    echo $(date): "Removing keepalived manifest file from /etc/kubernetes/manifests/kube-keepalived.yaml"
+    rm -rf /etc/kubernetes/manifests/kube-keepalived.yaml
+    echo $(date): "Removing keepalived config file from {{ .Values.keepalived.config_path }}/{{ .Values.keepalived.config_file }}"
+    rm -rf {{ .Values.keepalived.config_path }}/{{ .Values.keepalived.config_file }}
