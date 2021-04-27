@@ -242,7 +242,7 @@ Install through Helm:
 
     $ helm install kubelived --namespace kube-system
 
-Actually, the Helm chart does not install `keepalived` on the Kubernetes Control Plane. Instead, it deployes installer pods as as daemonset on the master nodes. The installer pods are responsible to deploy the `kube-keepalived.yaml` pod manifest in the `/etc/kubernetes/manifests` folder and the proper `keepalived.conf` configuration file in `/etc/keepalived` location of each master node.
+Actually, the Helm chart does not install `keepalived` on the Kubernetes Control Plane. Instead, it deployes installer pods as daemonset on the master nodes. The installer pods are responsible to deploy the `kube-keepalived.yaml` pod manifest in the `/etc/kubernetes/manifests` folder and the proper `keepalived.conf` configuration file in `/etc/keepalived` location of each master node.
 
 Check the installer pods:
 
@@ -377,6 +377,13 @@ If the configuration files look good, then verify that nodes participating in VR
 Once we have the VIP and the VRRP working correctly, we need to assign the Kubernetes control plane endpoint to the VIP managed by keepalived. The control plane endpoint is the shared endpoint for all the nodes talking to the control plane. Such an endpoint can be either a DNS name or even an IP address.
 
 Depending on the way we deploy the cluster, this endpoint can be required to be already available during the installation. To avoid this "*chicken and egg dilemma*" we can first assign the endpoint DNS name to one of the master nodes, deploy the cluster, and then deploy keepalived as static pods on all the masters. Once we have the floating VIP up and running we can assign the DNS name of the endpoint to the floating VIP.
+
+## Usage on different namespaces
+Kubelived can be used not only for assigning a VIP to the Control Plane. You can use kubelived also to assign a VIP to worker nodes, for example to expose an Ingress Controller or a service `NodePort` type. In suce case, you should not deploy on master nodes. Also, make sure you're checking the proper endpoint, eg. the Ingress Controller health page:
+
+`health_service_check: '/usr/bin/curl -s http://localhost:1042/healthz -o /dev/null'`
+
+instead of the Kubernetes APIs server.
 
 ## Monitoring keepalived
 Sending USR1 signal to keepalive process will dump configuration data to `/tmp/keepalived.data`, and sending USR2 will write statistics to `/tmp/keepalived.stats` inside the container.

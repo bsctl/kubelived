@@ -4,6 +4,10 @@ metadata:
   name: keepalived-installer
   labels:
     {{- include "kubelived.labels" . | nindent 4 }}
+    {{- with .Values.installer.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   namespace: {{ .Release.Namespace }}
 spec:
   selector:
@@ -11,29 +15,32 @@ spec:
       {{- include "kubelived.selectorLabels" . | nindent 6 }}
   template:
     metadata:
+    {{- with .Values.installer.podAnnotations }}
       annotations:
-        scheduler.alpha.kubernetes.io/critical-pod: ""
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
       labels:
         {{- include "kubelived.selectorLabels" . | nindent 8 }}
     spec:
       serviceAccountName: {{ include "kubelived.serviceAccountName" . }}
-      priorityClassName: system-node-critical
-      hostNetwork: true
+      hostNetwork: {{ .Values.installer.hostNetwork }}
       nodeSelector:
-        node-role.kubernetes.io/master: ""
+        {{- toYaml .Values.installer.nodeSelector | nindent 8 }}
+      affinity:
+        {{- toYaml .Values.installer.affinity | nindent 8 }}
       tolerations:
-        - key: CriticalAddonsOnly
-          operator: Exists
-        - effect: NoSchedule
-          key: node-role.kubernetes.io/master
+        {{- toYaml .Values.installer.tolerations | nindent 8 }}
       containers:
       - name: installer
         securityContext:
           privileged: true
-        image: {{ .Values.installer.repository }}:{{ .Values.installer.tag | default "latest" }}
-        imagePullPolicy: {{ .Values.installer.pullPolicy }}
-        command: ["./scripts/install.sh"]
+        image: {{ .Values.installer.image.repository }}:{{ .Values.installer.image.tag | default "latest" }}
+        imagePullPolicy: {{ .Values.installer.image.pullPolicy }}
+        args: ["sleep", "24h"]
         lifecycle:
+          postStart:
+            exec:
+              command: ["/bin/sh", "-c", "./scripts/install.sh"]
           preStop:
             exec:
               command: ["/bin/sh", "-c", "./scripts/uninstall.sh"]
@@ -41,14 +48,14 @@ spec:
         - name: manifest
           mountPath: /etc/kubernetes/manifests
         - name: config
-          mountPath: {{ .Values.keepalived_config_path }}
+          mountPath: {{ .Values.keepalived.config_path }}
         - name: keepalived-manifest
           mountPath: /opt/kube-keepalived.yaml
           subPath: kube-keepalived.yaml
         - name: keepalived-config
-          mountPath: /opt/{{ .Values.keepalived_config_file }}
-          subPath: {{ .Values.keepalived_config_file }}
-        - name: keepalived-install-scripts
+          mountPath: /opt/{{ .Values.keepalived.config_file }}
+          subPath: {{ .Values.keepalived.config_file }}
+        - name: keepalived-scripts
           mountPath: /scripts
       volumes:
       - name: manifest
@@ -56,7 +63,7 @@ spec:
           path: /etc/kubernetes/manifests
       - name: config
         hostPath:
-          path: {{ .Values.keepalived_config_path }}
+          path: {{ .Values.keepalived.config_path }}
           type: DirectoryOrCreate
       - name: keepalived-manifest
         configMap:
@@ -64,7 +71,7 @@ spec:
       - name: keepalived-config
         configMap:
           name: keepalived-config
-      - name: keepalived-install-scripts
+      - name: keepalived-scripts
         configMap:
-          name: keepalived-install-scripts
+          name: keepalived-scripts
           defaultMode: 0700
