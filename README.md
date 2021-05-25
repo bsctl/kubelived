@@ -233,7 +233,7 @@ As track script, we check the healthiness of the Kubernetes api-server as by pol
 According to the above, the keepalive will move the VIP away from nodes having unhealth api-server.
 
 ### Deploying keepalived with Helm
-Starting from release 0.2.0, we support the deployment of keepalived via the Helm 3 [chart](./helm).
+Starting from release 0.2.0, we support the deployment of keepalived via the Helm 3 [chart](./charts/kubelived).
 
 Make sure you have `kubectl` and `helm` tools installed in your workstation. Also make sure to have admin access to the cluster:
 
