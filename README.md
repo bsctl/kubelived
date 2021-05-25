@@ -235,7 +235,7 @@ According to the above, the keepalive will move the VIP away from nodes having u
 ### Deploying keepalived with Helm
 Starting from release 0.2.0, we support the deployment of keepalived via the Helm 3 [chart](./charts/kubelived).
 
-Make sure you have `kubectl` and `helm` tools installed in your workstation. Also make sure to have admin access to the cluster:
+Make sure you have `kubectl` and `helm` tools installed in your workstation. As there is no Helm repository for this chart right now, you need to clone this repo to deploy keepalived with Helm. Also make sure to have admin access to the cluster:
 
 
 Install through Helm:
