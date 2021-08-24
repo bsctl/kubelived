@@ -146,7 +146,7 @@ The kubelet automatically creates a mirror pod on the api-server for each static
 For example:
 
     $ kubectl -n kube-system get pods
-
+    
     NAME                               READY   STATUS    RESTARTS  AGE
     etcd-master-0                      1/1     Running   1         14d
     etcd-master-1                      1/1     Running   1         14d
@@ -221,7 +221,7 @@ Suppose, we have three master nodes with following IP addresses assigned to thei
 * master-0: 10.10.10.10
 * master-0: 10.10.10.11
 * master-2: 10.10.10.12
- 
+
 The floating VIP is 10.10.10.250 and it will be assigned to the master node with the highest priority. When not passing the priority, it can be calculated as the last octet of the node's IPv4 address. According to the VRRP protocol, the VIP will be initially taken by the node with the highest priority.
 
 As track script, we check the healthiness of the Kubernetes api-server as by polling its health URL:
@@ -253,7 +253,7 @@ The installer pods do a lookup to find the proper keepalived interface starting 
 Check the installation of `keepalived`:
 
     $ kubectl -n kube-system get pods
-
+    
     NAME                               READY   STATUS    RESTARTS  AGE
     etcd-master-0                      1/1     Running   1         14d
     etcd-master-1                      1/1     Running   1         14d
@@ -279,7 +279,7 @@ Check the actual keepalived configuration according to the values we passed in t
         default_interface eth0
         enable_script_security 
     }
-
+    
     vrrp_script apiserver {
     script  "/usr/bin/curl -s -k https://localhost:6443/healthz -o /dev/null"
     interval 20
@@ -288,7 +288,7 @@ Check the actual keepalived configuration according to the values we passed in t
     fall     1
     user     root
     }
-
+    
     vrrp_instance VI_1 {
         state BACKUP
         interface eth0
@@ -299,7 +299,7 @@ Check the actual keepalived configuration according to the values we passed in t
             auth_type PASS
             auth_pass cGFzc3dvcmQK
         }
-
+    
         track_script {
             apiserver
         }
@@ -325,7 +325,7 @@ according to our expectations, the VIP is held by master-2 since it has the high
 Check the logs and see what happened on master-2 node:
 
     $ kubectl -n kube-system logs kube-keepalived-master-2
-
+    
     Wed Apr 22 19:30:31 UTC 2020 /usr/bin/keepalived.sh: keepalived first start
     Wed Apr 22 19:30:31 UTC 2020 /usr/bin/config.sh: filling keepalived config file
     Wed Apr 22 19:30:31 UTC 2020 /usr/bin/config.sh: enabling unicast
@@ -390,7 +390,7 @@ Sending USR1 signal to keepalive process will dump configuration data to `/tmp/k
 
     $ kubectl -n kube-system exec kube-keepalived-master-0 -- kill -USR1 1
     $ kubectl -n kube-system exec kube-keepalived-master-0 -- cat /tmp/keepalived.stats
-
+    
     VRRP Instance: VI_1
     Advertisements:
         Received: 0
@@ -412,3 +412,62 @@ Sending USR1 signal to keepalive process will dump configuration data to `/tmp/k
         Sent: 0
 
 Also, SNMP V2 and V3 MIBs are available to monitor keepalived.
+
+## Multiple VIP setup
+
+In case you need to setup multiple VIPs on the same machine (one per interface), here's an example on how to configure your `values.yaml` file:
+
+```yaml
+installer:
+  image:
+    repository: busybox
+    pullPolicy: IfNotPresent
+    tag: latest
+  serviceAccount:
+    create: true
+    serviceAccountAnnotations: {}
+    name: ''
+  annotations: {}
+  podAnnotations: {}
+  hostNetwork: true
+  nodeSelector: {}
+  tolerations: []
+
+keepalived:
+  image:
+    repository: bsctl/keepalived 
+    pullPolicy: IfNotPresent
+    tag: '0.2.0'
+  config_path: '/etc/keepalived'
+  config_file: 'keepalived.conf'
+  health_service_name: 'apiserver'
+  health_service_check: '/usr/bin/curl -s -k https://localhost:6443/healthz -o /dev/null'
+  health_service_user: 'root'
+  health_service_interval: '20'
+  health_service_timeout: '5'
+  health_service_rise: '1'
+  health_service_fall: '1'
+  instances:
+    - iface: VI_1
+      initial_state: 'backup'
+      password: 'password'
+      router_id: '100'
+      advertisement_interval: '3'
+      virtual_address: '192.168.12.2'
+      interface: 'eth0'
+      unicast_peers: []
+      health_service_name: 'apiserver'
+      health_service_interval: '20'
+    - iface: VI_2
+      initial_state: 'backup'
+      password: 'password'
+      router_id: '100'
+      advertisement_interval: '3'
+      virtual_address: '10.0.0.2'
+      interface: 'ens19'
+      unicast_peers: []
+      health_service_name: 'apiserver'
+      health_service_interval: '15'
+```
+
+As you can see in section `instances` you can list more than one interface. On each of them you can easily setup a customized VIP.

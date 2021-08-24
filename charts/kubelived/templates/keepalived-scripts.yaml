@@ -15,7 +15,9 @@ data:
       echo $(date): "Copying keepalived config file to {{ .Values.keepalived.config_path }}/{{ .Values.keepalived.config_file }}" 
       cp /opt/{{ .Values.keepalived.config_file }} {{ .Values.keepalived.config_path }}/{{ .Values.keepalived.config_file }}
       echo $(date): "Finding the keepalived interface:" $KEEPALIVED_INTERFACE
-      KEEPALIVED_INTERFACE={{ .Values.keepalived.interface }}
+      {{- with (index .Values.keepalived.instances 0 ) }}
+      KEEPALIVED_INTERFACE={{ .interface }}
+      {{- end }}
       echo $(date): "Calculating the keepalived priority:" $KEEPALIVED_PRIORITY
       KEEPALIVED_PRIORITY=$(ifconfig $KEEPALIVED_INTERFACE | grep 'inet '| awk '{print $2}'| cut -d. -f4)
       sed -i "s|KEEPALIVED_INTERFACE|$KEEPALIVED_INTERFACE|g" {{ .Values.keepalived.config_path }}/{{ .Values.keepalived.config_file }}
