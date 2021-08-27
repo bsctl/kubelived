@@ -37,6 +37,12 @@ data:
             add:
             - NET_ADMIN
         resources:
+          limits:
+            cpu: {{ .Values.keepalived.resources.limits.cpu }}
+            memory: {{ .Values.keepalived.resources.limits.memory }}
+          requests:
+            cpu: {{ .Values.keepalived.resources.requests.cpu }}
+            memory: {{ .Values.keepalived.resources.requests.memory }}
         volumeMounts:
         - mountPath: /etc/localtime
           name: host-localtime
