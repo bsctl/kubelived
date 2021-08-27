@@ -20,28 +20,30 @@ data:
       fall     {{ .Values.keepalived.health_service_fall }}
       user     {{ .Values.keepalived.health_service_user }}
     }
-    vrrp_instance VI_1 {
-      state {{ upper .Values.keepalived.initial_state }}
-      interface KEEPALIVED_INTERFACE
-      virtual_router_id {{ .Values.keepalived.router_id }}
+    {{- range $key, $val := .Values.keepalived.instances }}
+    vrrp_instance {{ $val.iface }} {
+      state {{ upper $val.initial_state }}
+      interface {{ $val.interface }}
+      virtual_router_id {{ $val.router_id }}
       priority KEEPALIVED_PRIORITY
-      advert_int {{ .Values.keepalived.health_service_interval }}
+      advert_int {{ $val.health_service_interval }}
       authentication {
         auth_type PASS
-        auth_pass {{ .Values.keepalived.password | b64enc }}
+        auth_pass {{ $val.password | b64enc }}
       }
       track_script {
-        {{ .Values.keepalived.health_service_name }}
+        {{ $val.health_service_name }}
       }     
       virtual_ipaddress {
-        {{ .Values.keepalived.virtual_address }} label KEEPALIVED_INTERFACE:VIP
+        {{ $val.virtual_address }} label {{ $val.interface }}:VIP
       }
       
-      {{- if .Values.keepalived.unicast_peers }}
+      {{- if $val.unicast_peers }}
       unicast_peer {
-      {{- range .Values.keepalived.unicast_peers }}
+      {{- range $val.unicast_peers }}
         {{ . }}
       {{- end }}
       }    
       {{- end }}
     }
+    {{- end }}
