@@ -27,6 +27,13 @@ keepalived:
     repository: bsctl/keepalived 
     pullPolicy: IfNotPresent
     tag: '0.2.0'
+  resources:                                                                                                                                                
+    limits:                                                                                                                                                 
+      cpu: 200m                                                                                                                                             
+      memory: 128Mi                                                                                                                                         
+    requests:                                                                                                                                               
+      cpu: 200m                                                                                                                                             
+      memory: 128Mi
   config_path: '/etc/keepalived'
   config_file: 'keepalived.conf'
   health_service_name: 'apiserver'
