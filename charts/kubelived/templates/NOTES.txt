@@ -1,7 +1,7 @@
 - Kubelived Helm Chart deployed:
 
    # Check the installer logs
-   $ kubectl logs -f ds/{{ template "kubelived.fullname" . }}-installer -n {{ .Release.Namespace }}
+   $ kubectl logs -f ds/keepalived-installer -n {{ .Release.Namespace }}
 
    # Check the keepalived logs
    $ kubectl logs -f kube-keepalived-<master> -n {{ .Release.Namespace }}
