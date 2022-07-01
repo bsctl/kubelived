@@ -248,7 +248,7 @@ Check the installer pods:
 
     $ kubectl -n kube-system get pods -o wide | grep keepalived-installer
 
-The installer pods do a lookup to find the proper keepalived interface starting from the VIP specified as `keepalived_virtual_address` parameter in the chart's [values.yaml](./helm/values.yaml).
+The installer pods do a lookup to find the proper keepalived interface starting from the VIP specified as `keepalived_virtual_address` parameter in the chart's [values.yaml](./charts/kubelived/values.yaml).
 
 Check the installation of `keepalived`:
 
